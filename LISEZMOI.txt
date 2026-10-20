@@ -1,0 +1,45 @@
+PDF -> Mail  —  convertisseur de PDF Canva en mail Outlook
+==========================================================
+
+Ce que fait l'outil
+-------------------
+- Ouvre un PDF exporté de Canva (Partager > Télécharger > PDF Standard).
+- Reprend automatiquement les liens créés dans Canva ; on peut en ajouter,
+  déplacer, agrandir ou supprimer au doigt.
+- Fabrique un mail fidèle au PDF (couleurs, polices, mise en page identiques) :
+  chaque page devient des images HD, les zones de lien sont cliquables.
+- Produit un fichier .eml : double-clic sur le PC -> Outlook ouvre un nouveau
+  mail prêt à envoyer. Aussi : export HTML et copier/coller.
+- Tout est traité sur l'appareil : le PDF n'est envoyé nulle part.
+
+Installer sur l'iPad (recommandé)
+---------------------------------
+Mettre ce dossier sur un hébergement HTTPS gratuit (GitHub Pages, Netlify,
+Cloudflare Pages...), puis sur l'iPad :
+  Safari > ouvrir l'adresse > bouton Partager > « Sur l'écran d'accueil ».
+L'outil apparaît comme une app, fonctionne hors connexion, et le bouton
+« Envoyer le mail vers mon PC… » ouvre directement le menu de partage
+(Outlook, Mail, AirDrop, OneDrive...).
+
+Autres façons de l'utiliser
+---------------------------
+- Sur un PC : double-cliquer sur index.html (Edge ou Chrome).
+- Depuis l'iPad sans hébergement : lancer « lancer.bat » sur un PC (Python
+  ou Node.js requis), puis taper sur l'iPad l'adresse affichée
+  (http://192.168.x.x:8080), sur le même Wi-Fi. Dans ce mode le fichier
+  .eml est enregistré dans « Fichiers > Téléchargements ».
+
+Envoyer depuis le PC
+--------------------
+1. Ouvrir le fichier .eml (pièce jointe reçue, OneDrive...) par double-clic.
+2. Outlook ouvre un nouveau mail : ajouter les destinataires > Envoyer.
+Si Windows ne l'ouvre pas avec Outlook : clic droit > Ouvrir avec > Outlook.
+Avec le « nouvel Outlook », si le mail s'ouvre en lecture seule : ouvrir
+l'outil sur le PC, bouton « Copier le mail », puis Ctrl+V dans un nouveau mail.
+
+Fichiers
+--------
+index.html, app.js         l'outil
+lib/                       PDF.js (Mozilla) pour lire les PDF
+manifest.webmanifest, sw.js, icons/   installation en app + hors connexion
+lancer.bat                 petit serveur local pour l'utiliser depuis l'iPad

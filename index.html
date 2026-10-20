@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PDF vers Mail</title>
+<meta name="description" content="Transforme un PDF Canva en mail HTML prêt pour Outlook, avec liens cliquables. Tout est traité sur l'appareil.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PDF → Mail">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#6d3df0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+  :root {
+    --bg: #f5f3fb;
+    --card: #ffffff;
+    --ink: #1d1830;
+    --muted: #6b6585;
+    --line: #e5e1f3;
+    --accent: #6d3df0;
+    --accent-ink: #ffffff;
+    --accent-soft: #efe9ff;
+    --link: #6d3df0;
+    --ok: #0f9d77;
+    --danger: #d6334a;
+    --warn-bg: #fff6e0;
+    --warn-ink: #7a5300;
+    --radius: 14px;
+    --topbar: 60px;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 100vh;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button, .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 44px; padding: 0 16px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--card); color: var(--ink);
+    font-weight: 600; cursor: pointer; user-select: none; -webkit-user-select: none;
+    position: relative; text-align: center;
+  }
+  button:active, .btn:active { transform: scale(.98); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button.ghost, .btn.ghost { background: transparent; }
+  button.danger { color: var(--danger); }
+  button.icon { min-width: 44px; padding: 0; }
+  button:disabled { opacity: .5; pointer-events: none; }
+  .sr-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+  .muted { color: var(--muted); }
+  .small { font-size: 14px; }
+  [hidden] { display: none !important; }
+
+  /* ---- Barre du haut ---- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    height: var(--topbar);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    background: rgba(255,255,255,.92);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand svg { flex: none; }
+  .brand h1 { font-size: 19px; margin: 0; white-space: nowrap; }
+  .brand .file { color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-actions { display: flex; gap: 8px; flex: none; }
+
+  /* ---- Accueil ---- */
+  .start { max-width: 760px; margin: 0 auto; padding: 40px 16px 60px; }
+  .drop {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    min-height: 300px; padding: 32px; text-align: center;
+    background: var(--card); border: 2px dashed #c9bdf5; border-radius: 22px;
+    cursor: pointer; position: relative;
+  }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .drop strong { font-size: 22px; }
+  .drop .pill { margin-top: 10px; background: var(--accent); color: #fff; padding: 12px 22px; border-radius: 999px; font-weight: 700; }
+  .how { margin-top: 28px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .how div { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; font-size: 14px; }
+  .how b { display: block; font-size: 15px; margin-bottom: 4px; }
+  .how .n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 13px; margin-bottom: 6px; }
+  .privacy { margin-top: 18px; text-align: center; font-size: 14px; color: var(--muted); }
+
+  /* ---- Espace de travail ---- */
+  .workspace {
+    display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px;
+    padding: 16px max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left));
+    align-items: start;
+  }
+  .editor-bar {
+    position: sticky; top: calc(var(--topbar) + 8px); z-index: 10;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 8px; margin-bottom: 14px; box-shadow: 0 4px 16px rgba(40,20,90,.06);
+  }
+  .editor-bar .hint { font-size: 14px; color: var(--muted); flex: 1; min-width: 180px; }
+  button.toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .pages { display: flex; flex-direction: column; gap: 22px; }
+  .page-wrap { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
+  .page-wrap.excluded .page { opacity: .3; filter: grayscale(1); }
+  .page-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 8px; font-weight: 700; font-size: 15px; }
+  .check { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; cursor: pointer; min-height: 36px; }
+  .check input { width: 22px; height: 22px; accent-color: var(--accent); }
+  .page { position: relative; width: 100%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); overflow: hidden; }
+  .page img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: none; }
+  .page .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+  .adding .layer { pointer-events: auto; touch-action: none; cursor: crosshair; }
+  .link {
+    position: absolute; pointer-events: auto; touch-action: none;
+    border: 2px solid var(--link); background: rgba(109,61,240,.16); border-radius: 4px;
+    cursor: move;
+  }
+  .link.missing { border-style: dashed; border-color: var(--danger); background: rgba(214,51,74,.14); }
+  .link.sel { border-width: 3px; background: rgba(109,61,240,.26); box-shadow: 0 0 0 3px rgba(255,255,255,.8); }
+  .link .n {
+    position: absolute; left: -2px; top: -2px; transform: translate(-40%, -40%);
+    min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px;
+    background: var(--link); color: #fff; font-size: 12px; font-weight: 800;
+    display: grid; place-items: center; pointer-events: none;
+  }
+  .link.missing .n { background: var(--danger); }
+  .link .grip {
+    position: absolute; right: -16px; bottom: -16px; width: 32px; height: 32px;
+    border-radius: 50%; background: #fff; border: 3px solid var(--link);
+    display: none; cursor: nwse-resize;
+  }
+  .link.sel .grip { display: block; }
+  .link.flash { animation: flash 1s ease 2; }
+  @keyframes flash { 50% { background: rgba(109,61,240,.6); } }
+
+  /* ---- Panneau de réglages ---- */
+  .panel {
+    position: sticky; top: calc(var(--topbar) + 8px);
+    max-height: calc(100vh - var(--topbar) - 16px); overflow: auto; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; gap: 12px; padding-bottom: 8px;
+  }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .count { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 0 8px; font-size: 13px; }
+  .field { display: block; margin-bottom: 10px; }
+  .field > span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .field input[type=text], .field input[type=email], .field input[type=url], .field select {
+    width: 100%; min-height: 44px; padding: 8px 12px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    font-size: 16px; /* évite le zoom automatique sur iPad */
+  }
+  .field select { -webkit-appearance: none; appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b6585' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 14px center; padding-right: 36px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .colorrow { display: flex; gap: 8px; align-items: center; }
+  .colorrow input[type=color] { width: 48px; height: 44px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: #fff; flex: none; }
+  .colorrow input[type=text] { flex: 1; min-width: 0; }
+  .colorrow button { flex: none; padding: 0 12px; }
+  .colorrow button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  .link-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .link-row:first-child { border-top: 0; }
+  .link-row .badge { flex: none; min-width: 26px; height: 26px; border-radius: 13px; background: var(--link); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+  .link-row.missing .badge { background: var(--danger); }
+  .link-row .lr-main { flex: 1; min-width: 0; }
+  .link-row small { display: block; color: var(--muted); font-size: 12px; }
+  .link-row input { width: 100%; min-height: 38px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 16px; }
+  .link-row.missing input { border-color: var(--danger); }
+  .link-row button { min-height: 38px; min-width: 38px; padding: 0 8px; font-size: 13px; }
+
+  .build-card { position: sticky; bottom: 0; box-shadow: 0 -6px 20px rgba(40,20,90,.06); }
+  .build-card button { width: 100%; }
+  .build-card .big { min-height: 54px; font-size: 17px; }
+  .build-card p { margin: 8px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+
+  /* ---- Fenêtres ---- */
+  dialog {
+    border: 0; border-radius: 20px; padding: 0; max-width: min(560px, calc(100vw - 24px)); width: 100%;
+    box-shadow: 0 20px 60px rgba(20,10,50,.3); color: var(--ink); background: var(--card);
+  }
+  dialog::backdrop { background: rgba(25,15,50,.45); }
+  .sheet { padding: 20px; }
+  .sheet h2 { margin: 0 0 14px; font-size: 20px; }
+  .seg { display: flex; background: var(--bg); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 14px; }
+  .seg button { flex: 1; border: 0; background: transparent; min-height: 40px; font-size: 14px; }
+  .seg button.on { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.12); color: var(--accent); }
+  .dlg-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .dlg-actions .spacer { flex: 1; }
+  .result-url { font-size: 13px; color: var(--muted); word-break: break-all; min-height: 18px; margin: 4px 0 0; }
+
+  dialog.wide { max-width: min(1100px, calc(100vw - 24px)); height: min(860px, calc(100vh - 24px)); }
+  dialog.wide[open] { display: flex; flex-direction: column; }
+  .res-head { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 20px; border-bottom: 1px solid var(--line); }
+  .res-head h2 { margin: 0; font-size: 18px; flex: 1; }
+  .res-head .seg { margin: 0; }
+  .res-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0,1fr) 320px; }
+  .frame-wrap { background: #e9e6f2; overflow: auto; -webkit-overflow-scrolling: touch; display: flex; justify-content: center; padding: 12px; }
+  .frame-wrap iframe { border: 0; background: #fff; width: 100%; height: 100%; min-height: 400px; box-shadow: 0 2px 10px rgba(0,0,0,.12); border-radius: 6px; }
+  .frame-wrap.mob iframe { width: 375px; flex: none; }
+  .res-side { padding: 16px; overflow: auto; display: flex; flex-direction: column; gap: 10px; border-left: 1px solid var(--line); }
+  .res-side button { width: 100%; }
+  .res-side .big { min-height: 54px; font-size: 17px; }
+  .res-size { font-size: 14px; margin: 0; }
+  .warn { background: var(--warn-bg); color: var(--warn-ink); border-radius: 10px; padding: 10px 12px; font-size: 14px; margin: 0; }
+  .howto { font-size: 14px; background: var(--bg); border-radius: 12px; padding: 12px 14px; margin-top: 4px; }
+  .howto b { display: block; margin-bottom: 4px; }
+  .howto ol { margin: 0; padding-left: 20px; }
+  .howto li { margin: 3px 0; }
+
+  .help { max-width: min(680px, calc(100vw - 24px)); }
+  .help .sheet { max-height: calc(100vh - 60px); overflow: auto; }
+  .help h3 { font-size: 16px; margin: 18px 0 6px; }
+  .help p, .help li { font-size: 15px; }
+  .help ol, .help ul { padding-left: 22px; margin: 6px 0; }
+
+  /* ---- Progression / notifications ---- */
+  .progress { position: fixed; inset: 0; z-index: 100; background: rgba(245,243,251,.82); display: grid; place-items: center; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .progress .box { background: #fff; border-radius: 18px; padding: 22px 26px; width: min(380px, 90vw); box-shadow: 0 12px 40px rgba(20,10,50,.18); text-align: center; }
+  .progress .bar { height: 8px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; margin-top: 12px; }
+  .progress .bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .toast {
+    position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
+    background: #1d1830; color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 15px;
+    opacity: 0; pointer-events: none; transition: .25s; z-index: 200; max-width: calc(100vw - 32px); text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+  #copyZone { position: fixed; left: -10000px; top: 0; width: 700px; opacity: 0; }
+
+  /* ---- Adaptations iPad portrait / petits écrans ---- */
+  @media (max-width: 1000px) {
+    .workspace { grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; }
+    .res-body { grid-template-columns: minmax(0,1fr) 280px; }
+  }
+  @media (max-width: 760px) {
+    .workspace { grid-template-columns: 1fr; }
+    .panel { position: static; max-height: none; overflow: visible; }
+    .res-body { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) auto; }
+    .res-side { border-left: 0; border-top: 1px solid var(--line); }
+    .how { grid-template-columns: 1fr; }
+    .brand .file { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#6d3df0"/><path d="M8 11.5h18v12a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 8 23.5z" fill="#fff"/><path d="M8.5 12l8.5 6.5 8.5-6.5" fill="none" stroke="#6d3df0" stroke-width="2" stroke-linejoin="round"/></svg>
+    <h1>PDF → Mail</h1>
+    <span class="file" id="fileLabel"></span>
+  </div>
+  <div class="top-actions">
+    <label class="btn ghost" id="btnNew" hidden>Changer de PDF<input type="file" class="sr-file" accept="application/pdf,.pdf" id="fileInput2"></label>
+    <button class="ghost" id="btnHelp" type="button">Mode d'emploi</button>
+  </div>
+</header>
+
+<main>
+  <section class="start" id="start">
+    <label class="drop" id="drop">
+      <input type="file" class="sr-file" accept="application/pdf,.pdf" id="fileInput">
+      <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><rect x="12" y="6" width="40" height="52" rx="6" fill="#efe9ff"/><path d="M40 6v10a4 4 0 0 0 4 4h8" fill="#d9cdfd"/><text x="32" y="44" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="14" fill="#6d3df0">PDF</text></svg>
+      <strong>Ouvrir le PDF exporté de Canva</strong>
+      <span class="muted">Touchez ici pour le choisir dans « Fichiers », ou glissez-le dans cette zone.</span>
+      <span class="pill">Choisir un PDF</span>
+    </label>
+    <div class="how">
+      <div><span class="n">1</span><b>Ouvrir le PDF</b>Les liens créés dans Canva sont repris automatiquement.</div>
+      <div><span class="n">2</span><b>Ajuster</b>Ajoutez ou corrigez des liens, choisissez la couleur du fond.</div>
+      <div><span class="n">3</span><b>Créer le mail</b>Un fichier .eml qui s'ouvre dans Outlook, prêt à envoyer.</div>
+    </div>
+    <p class="privacy">🔒 Tout est traité sur l'appareil : le PDF n'est envoyé nulle part.</p>
+  </section>
+
+  <section class="workspace" id="workspace" hidden>
+    <div class="editor">
+      <div class="editor-bar">
+        <button type="button" class="toggle" id="btnAddLink">＋ Dessiner un lien</button>
+        <span class="hint" id="modeHint">Touchez un lien pour le modifier, faites-le glisser pour le déplacer.</span>
+      </div>
+      <div class="pages" id="pages"></div>
+    </div>
+
+    <aside class="panel">
+      <div class="card">
+        <h2>Le mail</h2>
+        <label class="field"><span>Objet</span><input type="text" id="optSubject" placeholder="Objet du mail"></label>
+        <label class="field"><span>Destinataire(s) — facultatif</span><input type="email" id="optTo" placeholder="prenom.nom@exemple.fr" autocapitalize="off" autocorrect="off" spellcheck="false" multiple></label>
+        <label class="field" style="margin-bottom:0"><span>Texte d'aperçu — facultatif</span><input type="text" id="optPreheader" placeholder="Phrase affichée sous l'objet dans la boîte de réception"></label>
+      </div>
+
+      <div class="card">
+        <h2>Apparence</h2>
+        <div class="grid2">
+          <label class="field"><span>Largeur du mail</span>
+            <select id="optWidth">
+              <option value="600">600 px (standard)</option>
+              <option value="650">650 px</option>
+              <option value="700">700 px</option>
+              <option value="800">800 px (large)</option>
+            </select>
+          </label>
+          <label class="field"><span>Qualité des images</span>
+            <select id="optQuality">
+              <option value="light">Légère</option>
+              <option value="reco">Recommandée</option>
+              <option value="high">Haute</option>
+              <option value="max">Maximale (PNG)</option>
+            </select>
+          </label>
+        </div>
+        <div class="field"><span>Couleur autour du visuel</span>
+          <div class="colorrow">
+            <input type="color" id="optBg" value="#ffffff" aria-label="Couleur de fond">
+            <input type="text" id="optBgHex" value="#ffffff" maxlength="7" autocapitalize="off" spellcheck="false" aria-label="Code couleur">
+            <button type="button" id="btnBgAuto" class="on" title="Reprendre la couleur du bord du PDF">Auto</button>
+          </div>
+        </div>
+        <div class="grid2">
+          <label class="field" style="margin-bottom:0"><span>Espace entre les pages</span>
+            <select id="optGap">
+              <option value="0">Aucun</option>
+              <option value="10">10 px</option>
+              <option value="20">20 px</option>
+              <option value="40">40 px</option>
+            </select>
+          </label>
+          <label class="field" style="margin-bottom:0"><span>Marge haut / bas</span>
+            <select id="optMargin">
+              <option value="0">Aucune</option>
+              <option value="10">10 px</option>
+              <option value="20">20 px</option>
+              <option value="40">40 px</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Liens <span class="count" id="linkCount">0</span></h2>
+        <div id="linkList"></div>
+      </div>
+
+      <div class="card build-card">
+        <button type="button" class="primary big" id="btnBuild">✉ Créer le mail</button>
+        <p>Aperçu, puis envoi vers Outlook.</p>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<!-- Édition d'un lien -->
+<dialog id="linkDialog">
+  <form method="dialog" class="sheet" id="linkForm">
+    <h2 id="linkTitle">Lien</h2>
+    <div class="seg" id="linkType">
+      <button type="button" data-t="web" class="on">Site web</button>
+      <button type="button" data-t="mail">Adresse e-mail</button>
+      <button type="button" data-t="tel">Téléphone</button>
+    </div>
+    <label class="field"><span id="linkLabel">Adresse du site</span>
+      <input type="text" id="linkInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+    </label>
+    <p class="result-url" id="linkResult"></p>
+    <div class="dlg-actions">
+      <button value="delete" class="danger" id="linkDelete">Supprimer</button>
+      <span class="spacer"></span>
+      <button type="button" id="linkTest">Tester</button>
+      <button value="cancel" formnovalidate>Annuler</button>
+      <button value="ok" class="primary" id="linkOk">Valider</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Résultat / aperçu -->
+<dialog id="resultDialog" class="wide">
+  <div class="res-head">
+    <h2>Votre mail est prêt</h2>
+    <div class="seg" id="viewSeg">
+      <button type="button" data-v="desk" class="on">Ordinateur</button>
+      <button type="button" data-v="mob">Téléphone</button>
+    </div>
+    <button type="button" class="icon ghost" id="resClose" aria-label="Fermer">✕</button>
+  </div>
+  <div class="res-body">
+    <div class="frame-wrap" id="frameWrap">
+      <iframe id="previewFrame" title="Aperçu du mail" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>
+    </div>
+    <div class="res-side">
+      <p class="res-size" id="resSize"></p>
+      <p class="warn" id="resWarn" hidden></p>
+      <button type="button" class="primary big" id="btnShare">Envoyer le mail vers mon PC…</button>
+      <button type="button" id="btnSaveEml">Enregistrer le fichier .eml</button>
+      <button type="button" id="btnCopy">Copier le mail (pour coller)</button>
+      <button type="button" id="btnSaveHtml">Télécharger en HTML</button>
+      <div class="howto">
+        <b>Ensuite, sur le PC :</b>
+        <ol>
+          <li>Ouvrez le fichier <em>.eml</em> (pièce jointe, OneDrive…) par double-clic.</li>
+          <li>Outlook ouvre un <strong>nouveau mail prêt</strong>, avec le visuel et les liens.</li>
+          <li>Ajoutez les destinataires puis cliquez sur <strong>Envoyer</strong>.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Mode d'emploi -->
+<dialog id="helpDialog" class="help">
+  <form method="dialog" class="sheet">
+    <h2>Mode d'emploi</h2>
+
+    <h3>1. Dans Canva</h3>
+    <p>Partager → Télécharger → <strong>PDF Standard</strong>. Les liens ajoutés dans Canva (texte ou image avec un lien) sont conservés et repris automatiquement ici.</p>
+
+    <h3>2. Ici, sur l'iPad</h3>
+    <ul>
+      <li><strong>Ouvrir le PDF</strong> depuis l'app Fichiers.</li>
+      <li>Les zones cliquables apparaissent en <span style="color:var(--accent);font-weight:700">violet</span>. Touchez-en une pour changer l'adresse ou la supprimer ; faites-la glisser pour la déplacer ; tirez le rond blanc pour l'agrandir.</li>
+      <li><strong>＋ Dessiner un lien</strong> : glissez le doigt sur la zone à rendre cliquable (un bouton, un texte, un logo…), puis tapez l'adresse : site web, e-mail ou téléphone.</li>
+      <li>Décochez <em>Inclure</em> pour retirer une page du mail.</li>
+      <li><strong>Couleur autour du visuel</strong> : « Auto » reprend la couleur du bord du PDF pour un rendu sans démarcation.</li>
+    </ul>
+
+    <h3>3. Créer et envoyer</h3>
+    <ol>
+      <li><strong>Créer le mail</strong> affiche l'aperçu exact du mail.</li>
+      <li><strong>Envoyer le mail vers mon PC…</strong> : choisissez Outlook ou Mail et envoyez-le à votre adresse pro (ou AirDrop / OneDrive).</li>
+      <li>Sur le PC, double-cliquez la pièce jointe <em>.eml</em> : Outlook ouvre un nouveau mail prêt à partir. Ajoutez les destinataires → <strong>Envoyer</strong>.</li>
+    </ol>
+
+    <h3>Bon à savoir</h3>
+    <ul>
+      <li>Le visuel est intégré en images haute définition découpées : couleurs, polices et mise en page restent <strong>identiques au PDF</strong> dans Outlook, Gmail, sur iPhone… Les zones avec un lien sont des images cliquables.</li>
+      <li>Le texte du PDF est repris comme texte alternatif des images (affiché si les images sont bloquées, lu par les lecteurs d'écran).</li>
+      <li>Si Windows n'ouvre pas le .eml avec Outlook : clic droit → <em>Ouvrir avec</em> → <em>Outlook</em>.</li>
+      <li>Avec le <em>nouvel</em> Outlook, si le mail s'ouvre en lecture seule : ouvrez cet outil sur le PC, puis <strong>Copier le mail</strong> et collez-le (Ctrl+V) dans un nouveau message.</li>
+      <li>Gardez le mail sous ~10 Mo : choisissez la qualité « Légère » si le PDF a beaucoup de pages.</li>
+    </ul>
+    <div class="dlg-actions"><span class="spacer"></span><button value="close" class="primary">J'ai compris</button></div>
+  </form>
+</dialog>
+
+<div class="progress" id="progress" hidden>
+  <div class="box"><div id="progressText">Patientez…</div><div class="bar"><span id="progressBar"></span></div></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="copyZone" contenteditable="true" aria-hidden="true"></div>
+
+<script src="lib/pdf.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
